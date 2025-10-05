@@ -1,5 +1,6 @@
 pipeline {
-    agent any // This can be any agent, it just needs to have Docker running on it.
+  
+  agent any // This can be any agent, it just needs to have Docker running on it.
 
     stages {
         stage('Run Trivy Scan') {
