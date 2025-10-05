@@ -5,8 +5,9 @@ pipeline {
   stages {
     
     stage('Run Trivy Scan') {
-            // Use a Docker image that has the Docker CLI and other tools you need.
-            // The 'args' part is key: it mounts the host's Docker socket.
+      
+      // Use a Docker image that has the Docker CLI and other tools you need.
+      // The 'args' part is key: it mounts the host's Docker socket.
             agent {
                 docker {
                     image 'aquasec/trivy:0.43.0'
