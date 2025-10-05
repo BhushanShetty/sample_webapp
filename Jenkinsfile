@@ -28,7 +28,7 @@ pipeline {
 
                     echo "Trivy HTML report generated at trivy-report.html"
                 '''
-            }
-        }
-    }
+      }
+    }
+  }
 }
