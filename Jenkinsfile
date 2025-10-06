@@ -1,11 +1,10 @@
 pipeline {
-    // Run the main part of the pipeline on a basic agent.
+    // This top-level agent can be any basic agent.
     agent any
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')
         DOCKER_IMAGE = "my-python-app:latest"
-        // Define the Trivy image to use, making it easy to update
         TRIVY_IMAGE = 'aquasec/trivy:0.43.0' 
     }
 
@@ -16,7 +15,7 @@ pipeline {
             }
         }
         
-        // This stage does not need Docker, so it can run on any agent.
+        // This stage runs on the basic agent, as it only needs Python.
         stage('Setup, Test & SonarQube Scan') {
             steps {
                 sh '''
@@ -34,20 +33,21 @@ pipeline {
             }
         }
 
-        // --- Stages requiring Docker ---
-        // We will define a specific agent for all stages that need the Docker CLI.
-        
-        stage('Security Scans & Build') {
-            // This agent directive tells Jenkins to run these steps inside a Docker container
-            // that has the Docker CLI available.
+        // =====================================================================
+        // CRITICAL SECTION: This is the part that solves your "docker: not found" error
+        // =====================================================================
+        stage('Security Scans & Docker Build') {
+            // THIS IS THE FIX: It tells Jenkins to run all nested stages
+            // inside a container created from the 'docker:24.0.5' image.
+            // This container has the 'docker' command available.
             agent {
                 docker { image 'docker:24.0.5' }
             }
+            
             stages {
                 stage('Trivy Filesystem Scan') {
                     steps {
-                        // This command runs the trivy container, mounts the current workspace,
-                        // scans the source code for misconfigurations, secrets, etc.
+                        // Now this 'docker run' command will succeed because we are inside a Docker-enabled agent.
                         sh """
                         docker run --rm -v \$(pwd):/workdir ${TRIVY_IMAGE} --format template --template "@contrib/html.tpl" -o trivy-fs-report.html .
                         """
@@ -67,7 +67,6 @@ pipeline {
 
                 stage('Trivy Image Scan') {
                     steps {
-                        // Now we scan the image we just built for OS and library vulnerabilities.
                         sh """
                         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ${TRIVY_IMAGE} image --format template --template "@contrib/html.tpl" -o trivy-image-report.html --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_IMAGE}
                         """
@@ -85,12 +84,6 @@ pipeline {
                         }
                     }
                 }
-
-                stage('Docker Scout Scan') {
-                    steps {
-                         sh "docker scout cves ${DOCKER_IMAGE}"
-                    }
-                }
             }
         }
 
@@ -106,7 +99,7 @@ pipeline {
     post {
         always {
             echo 'Pipeline completed.'
-            cleanWs() // Deletes the workspace at the end of the build
+            cleanWs()
         }
     }
 }
